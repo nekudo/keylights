@@ -1,0 +1,131 @@
+#!/bin/bash
+#
+# Simple bash script to control Elgato Key Lights.
+#
+# Usage:
+#
+# ./keylights -h <hostname> <action>
+#
+# Examples:
+#
+# ./keylights -h=elgato-key-light-air-12ab.local on
+# ./keylights -h=elgato-key-light-air-12ab.local off
+# ./keylights -h=elgato-key-light-air-12ab.local b+
+# ./keylights -h=elgato-key-light-air-12ab.local b-
+# ./keylights -h=elgato-key-light-air-12ab.local t+
+# ./keylights -h=elgato-key-light-air-12ab.local t-
+#
+# Hint: Find hostnames of your devices using the following command:
+#
+# avahi-browse -r -t _elg._tcp
+#
+# Depends on: avahi-resolve, curl, awk, jq
+
+resolve_hostname() {
+    KL_IP=$(avahi-resolve -n $KL_HOSTNAME | awk '{print $2}')
+}
+
+fetch_state() {
+    KL_STATE=$(curl -s http://$KL_IP:9123/elgato/lights)
+    KL_ON=$(echo $KL_STATE | jq '.lights[0].on')
+    KL_BRIGHTNESS=$(echo $KL_STATE | jq '.lights[0].brightness')
+    KL_TEMP=$(echo $KL_STATE | jq '.lights[0].temperature')
+}
+
+switch_on() {
+    echo "Switching light on..."
+    curl -s -X PUT http://$KL_IP:9123/elgato/lights -H "Content-Type: application/json"  -d "{\"numberOfLights\": 1, \"lights\": [{ \"on\": 1}]}" > /dev/null
+}
+
+switch_off() {
+    echo "Switching light off"
+    curl -s -X PUT http://$KL_IP:9123/elgato/lights -H "Content-Type: application/json"  -d "{\"numberOfLights\": 1, \"lights\": [{ \"on\": 0}]}" > /dev/null
+}
+
+brightness_up() {
+    KL_BRIGHTNESS_NEW=$(($KL_BRIGHTNESS + 10))
+    echo "Setting brightness to $KL_BRIGHTNESS_NEW%"
+    curl -s -X PUT http://$KL_IP:9123/elgato/lights -H "Content-Type: application/json"  -d "{\"numberOfLights\": 1, \"lights\": [{\"brightness\": $KL_BRIGHTNESS_NEW}]}" > /dev/null
+}
+
+brightness_down() {
+    KL_BRIGHTNESS_NEW=$(($KL_BRIGHTNESS - 10))
+    echo "Setting brightness to $KL_BRIGHTNESS_NEW%"
+    curl -s -X PUT http://$KL_IP:9123/elgato/lights -H "Content-Type: application/json"  -d "{\"numberOfLights\": 1, \"lights\": [{\"brightness\": $KL_BRIGHTNESS_NEW}]}" > /dev/null
+}
+
+temperature_up() {
+    echo $KL_TEMP
+    KL_TEMP_NEW=$(($KL_TEMP + 20))
+    echo "Setting temperature to $KL_TEMP_NEW"
+    curl -s -X PUT http://$KL_IP:9123/elgato/lights -H "Content-Type: application/json"  -d "{\"numberOfLights\": 1, \"lights\": [{\"temperature\": $KL_TEMP_NEW}]}" > /dev/null
+}
+
+temperature_down() {
+    echo $KL_TEMP
+    KL_TEMP_NEW=$(($KL_TEMP - 20))
+    echo "Setting temperature to $KL_TEMP_NEW"
+    curl -s -X PUT http://$KL_IP:9123/elgato/lights -H "Content-Type: application/json"  -d "{\"numberOfLights\": 1, \"lights\": [{\"temperature\": $KL_TEMP_NEW}]}" > /dev/null
+}
+
+for i in "$@"
+do
+case $i in
+    on|off|b+|b-|t+|t-)
+        ACTION="${i#*=}"
+        shift
+        ;;
+    -h=*|--hostname=*)
+        KL_HOSTNAME="${i#*=}"
+        shift
+        ;;
+    *)
+        # unknown option
+    ;;
+esac
+done
+
+if [ -z "$ACTION" ]; then
+    echo "Invalid action provided. Usage: keylights -h=<hostname> on|off|b+|b-|t+|t-"
+    exit 1
+fi
+
+if [ -z "$KL_HOSTNAME" ]; then
+    echo "Please provide a hostname using the -h=<hostname> option."
+    exit 1
+fi
+
+case $ACTION in
+    on)
+        resolve_hostname
+        switch_on
+        ;;
+    off)
+        resolve_hostname
+        switch_off
+        ;;
+    b+)
+        resolve_hostname
+        fetch_state
+        brightness_up
+        ;;
+    b-)
+        resolve_hostname
+        fetch_state
+        brightness_down
+        ;;
+    t+)
+        resolve_hostname
+        fetch_state
+        temperature_up
+        ;;
+    t-)
+        resolve_hostname
+        fetch_state
+        temperature_down
+        ;;
+    *)
+        echo "Error: Unknown action."
+        exit 1
+        ;;
+esac
