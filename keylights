@@ -42,6 +42,13 @@ switch_off() {
     curl -s -X PUT http://$KL_IP:9123/elgato/lights -H "Content-Type: application/json"  -d "{\"numberOfLights\": 1, \"lights\": [{ \"on\": 0}]}" > /dev/null
 }
 
+toggle() {
+    KL_STATES=(1 0)
+    KL_CURRENT_STATE=$(curl -s -XGET http://$KL_IP:9123/elgato/lights -H "Content-Type: application/json" | jq '.lights[].on')
+    echo "Toggle light"
+    curl -s -X PUT http://$KL_IP:9123/elgato/lights -H 'Content-Type: application/json'  -d "{\"numberOfLights\": 1, \"lights\": [{ \"on\": ${KL_STATES[$KL_CURRENT_STATE]}}]}" > /dev/null
+}
+
 brightness_up() {
     KL_BRIGHTNESS_NEW=$(($KL_BRIGHTNESS + 10))
     echo "Setting brightness to $KL_BRIGHTNESS_NEW%"
@@ -71,7 +78,7 @@ temperature_down() {
 for i in "$@"
 do
 case $i in
-    on|off|b+|b-|t+|t-)
+    on|off|toggle|b+|b-|t+|t-)
         ACTION="${i#*=}"
         shift
         ;;
@@ -103,6 +110,10 @@ case $ACTION in
     off)
         resolve_hostname
         switch_off
+        ;;
+    toggle)
+        resolve_hostname
+        toggle
         ;;
     b+)
         resolve_hostname
