@@ -14,6 +14,7 @@ Depends on: avahi-resolve, curl, awk, jq
 ```
 ./keylights -h=elgato-key-light-air-12ab.local on
 ./keylights -h=elgato-key-light-air-12ab.local off
+./keylights -h=elgato-key-light-air-12ab.local toggle
 ```
 
 #### Turn brightness up/down
