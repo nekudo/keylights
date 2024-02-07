@@ -22,7 +22,11 @@
 # Depends on: avahi-resolve, curl, awk, jq
 
 resolve_hostname() {
-    KL_IP=$(avahi-resolve -n $KL_HOSTNAME | awk '{print $2}')
+    if [[ $KL_HOSTNAME =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        KL_IP=$KL_HOSTNAME
+    else
+        KL_IP=$(avahi-resolve -n $KL_HOSTNAME | awk '{print $2}')
+    fi
 }
 
 fetch_state() {
